@@ -14,7 +14,7 @@ mongoose.connect(process.env.MONGODB_URI)
     process.exit(1);
   });
 
-// Rate limiting — 100 requests per 15 min per IP
+// Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -26,7 +26,10 @@ app.use(cors({ origin: process.env.CLIENT_URL }));
 app.use(express.json());
 app.use('/api', limiter);
 
-// Health check — keeps Render awake via UptimeRobot later
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
