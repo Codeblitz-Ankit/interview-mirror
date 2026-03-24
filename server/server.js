@@ -28,6 +28,7 @@ app.use('/api', limiter);
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/session', require('./routes/session'));
 
 // Health check
 app.get('/api/health', (req, res) => {
