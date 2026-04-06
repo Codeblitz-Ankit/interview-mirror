@@ -34,26 +34,37 @@ Example: ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 
 router.post('/analyze-star', protect, async (req, res) => {
   try {
     const { question, answer } = req.body;
+    
+    // Fetch user to get their resume claims
+    const user = await User.findById(req.user._id);
+    const resumeContext = user.resumeClaims && user.resumeClaims.length > 0 
+      ? `User's Resume Claims: ${user.resumeClaims.join(', ')}`
+      : "No resume provided.";
 
     if (!answer || answer.length < 10) {
-      return res.json({ analysis: "Answer is too short for a STAR analysis. Try to explain the Situation, Task, Action, and Result." });
+      return res.json({ analysis: "Answer too short for analysis." });
     }
 
     const prompt = `
-      You are an expert interview coach. Analyze the following interview answer based on the STAR framework (Situation, Task, Action, Result).
+      You are an expert interview coach. Analyze the following answer based on the STAR framework (Situation, Task, Action, Result).
       
+      CONTEXT:
       Question: "${question}"
-      User Answer: "${answer}"
+      User's Spoken Answer: "${answer}"
+      ${resumeContext}
       
-      Provide a concise 2-3 sentence analysis. Tell the user which parts of STAR they covered well and what is missing.
-      Be encouraging but honest.
+      TASK:
+      1. Provide a 2-sentence STAR analysis.
+      2. GAP ANALYSIS: Check if the user's spoken answer supports or contradicts their resume claims. If they mentioned something in their resume that would have made this answer stronger but failed to say it, point it out.
+      
+      Be concise, brutal, and helpful.
     `;
 
     const analysis = await askGemini(prompt);
     res.json({ analysis });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to analyze answer" });
+    res.status(500).json({ error: "Analysis failed" });
   }
 });
 

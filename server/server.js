@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
+const resumeRoutes = require('./routes/resume');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use('/api', limiter);
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/session', require('./routes/session'));
+app.use('/api/resume', resumeRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

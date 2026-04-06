@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
     minlength: 6
   },
   resumeClaims: [String],
+  rawResumeText: { type: String, default: "" },
   createdAt: {
     type: Date,
     default: Date.now

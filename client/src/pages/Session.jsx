@@ -87,6 +87,12 @@ const Session = () => {
 
   if (!questions.length) return <div>No session data found.</div>;
 
+  // Near the top of your return statement in Session.jsx
+  <div style={{ marginBottom: '10px', fontSize: '0.8rem', color: '#666' }}>
+    {/* Assuming you have access to user data via useAuth */}
+    {user?.resumeClaims?.length > 0 ? "🟢 Gap Analysis Active (Resume Loaded)" : "⚪ General Analysis Active"}
+  </div>
+
   return (
     <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
       <h2>Question {currentIdx + 1} of {questions.length}</h2>
