@@ -12,7 +12,13 @@ import Session from './pages/Session'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-shell-50 px-4 text-sm font-medium tracking-[0.18em] text-ink-500 uppercase">
+        Loading...
+      </div>
+    );
+  }
   return user ? children : <Navigate to="/login" />;
 };
 
