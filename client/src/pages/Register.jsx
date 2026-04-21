@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import API from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import heroImage from '../../../interviewPhoto.jpg';
+import heroImage from '../assets/interviewPhoto.jpg';
 
 const Register = () => {
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });

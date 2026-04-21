@@ -69,16 +69,21 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Get user profile
 // @route   GET /api/auth/me
+// @desc    Get logged in user data
 // @access  Private
 router.get('/me', protect, async (req, res) => {
   try {
-    // req.user is set by the protect middleware
+    // req.user is set by your protect middleware
+    // We use .select('-password') to ensure we NEVER send the hash to the frontend
     const user = await User.findById(req.user._id).select('-password');
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error("Auth Me Error:", err);
+    res.status(500).json({ error: "Server error fetching user" });
   }
 });
 

@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import API from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
-const Session = () => {
+export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  
+  // Extract state from Dashboard routing
   const { questions, config } = location.state || { questions: [], config: {} };
 
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -12,13 +16,18 @@ const Session = () => {
   const [isListening, setIsListening] = useState(false);
   const [starFeedback, setStarFeedback] = useState(null);
   
-  // New state to store all answers for the final report
   const [allAnswers, setAllAnswers] = useState([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Handles both save and report generation
 
-  // Web Speech Setup (same as before)
+  // Web Speech API Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+  useEffect(() => {
+    if (!questions || questions.length === 0) {
+      navigate('/dashboard'); // Kick them out if they bypassed the setup
+    }
+  }, [questions, navigate]);
 
   if (recognition) {
     recognition.continuous = true;
@@ -31,12 +40,18 @@ const Session = () => {
   }
 
   const toggleListening = () => {
+    if (!recognition) {
+      alert("Your browser does not support Speech Recognition. Please use Chrome.");
+      return;
+    }
+
     if (isListening) {
       recognition.stop();
       setIsListening(false);
-      analyzeAnswer();
+      analyzeAnswer(); // Trigger analysis when they stop talking
     } else {
       setTranscript("");
+      setStarFeedback(null);
       recognition.start();
       setIsListening(true);
     }
@@ -44,79 +59,136 @@ const Session = () => {
 
   const analyzeAnswer = async () => {
     try {
+      setStarFeedback("Analyzing your answer...");
+      
       const res = await API.post('/session/analyze-star', {
         question: questions[currentIdx],
         answer: transcript
       });
+      
       setStarFeedback(res.data.analysis);
       
-      // Store this specific answer in our list
       const newAnswer = {
         question: questions[currentIdx],
-        transcript: transcript,
-        starAnalysis: res.data.analysis
+        transcript: transcript
       };
-      setAllAnswers([...allAnswers, newAnswer]);
+
+      // FIX: Safely update the exact index so we don't duplicate answers if they re-record
+      setAllAnswers(prev => {
+        const updated = [...prev];
+        updated[currentIdx] = newAnswer;
+        return updated;
+      });
+
     } catch (err) {
       console.error("STAR Analysis failed", err);
+      setStarFeedback("Failed to analyze answer. Please try again.");
     }
   };
 
-  const nextQuestion = async () => {
+  const handleNextOrFinish = async () => {
     if (currentIdx < questions.length - 1) {
+      // Move to next question
       setCurrentIdx(currentIdx + 1);
       setTranscript("");
       setStarFeedback(null);
     } else {
-      // INTERVIEW COMPLETE - SAVE TO DB
-      setIsSaving(true);
+      // FIX: Complete End-of-Interview Flow
+      setIsProcessing(true);
       try {
-        const res = await API.post('/session/save', {
+        // 1. Save the raw session to DB
+        const saveRes = await API.post('/session/save', {
           ...config,
           answers: allAnswers
         });
-        
-        // Navigate to report page with the new Session ID
-        navigate(`/report/${res.data.sessionId}`);
+        const sessionId = saveRes.data.sessionId;
+
+        // 2. Generate the full AI debrief report (This was missing!)
+        setStarFeedback("Generating final AI debrief report... This may take up to 15 seconds.");
+        await API.post('/session/report', { sessionId });
+
+        // 3. Navigate to the results page
+        navigate(`/report/${sessionId}`);
       } catch (err) {
-        alert("Failed to save session.");
-        setIsSaving(false);
+        console.error(err);
+        alert("Failed to finalize session. Check server logs.");
+        setIsProcessing(false);
       }
     }
   };
 
-  if (!questions.length) return <div>No session data found.</div>;
-
-  // Near the top of your return statement in Session.jsx
-  <div style={{ marginBottom: '10px', fontSize: '0.8rem', color: '#666' }}>
-    {/* Assuming you have access to user data via useAuth */}
-    {user?.resumeClaims?.length > 0 ? "🟢 Gap Analysis Active (Resume Loaded)" : "⚪ General Analysis Active"}
-  </div>
+  if (!questions.length) return null;
 
   return (
-    <div style={{ padding: '40px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2>Question {currentIdx + 1} of {questions.length}</h2>
-      <p style={{ fontSize: '1.2rem' }}>{questions[currentIdx]}</p>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-3xl bg-white shadow rounded-lg p-8">
+        
+        {/* Header Indicator */}
+        <div className="flex justify-between items-center mb-6 pb-4 border-b">
+          <span className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
+            Question {currentIdx + 1} of {questions.length}
+          </span>
+          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            {user?.resumeClaims?.length > 0 ? 'Context: Resume Uploaded' : 'Context: General'}
+          </span>
+        </div>
 
-      <button onClick={toggleListening} style={{ padding: '10px 20px', background: isListening ? 'red' : 'green', color: 'white' }}>
-        {isListening ? "Stop & Analyze" : "Start Answering"}
-      </button>
+        {/* The Question */}
+        <h2 className="text-2xl font-bold text-gray-900 mb-8 leading-relaxed">
+          {questions[currentIdx]}
+        </h2>
 
-      <div style={{ margin: '20px 0', border: '1px solid #ddd', padding: '10px' }}>
-        <strong>Live Transcript:</strong> {transcript}
-      </div>
+        {/* Live Transcript Area */}
+        <div className="mb-8 relative">
+          <div className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-lg overflow-y-auto text-gray-700 font-medium leading-relaxed">
+            {transcript || (isListening ? "Listening..." : "Click start to begin your answer...")}
+          </div>
+          
+          {isListening && (
+            <span className="absolute top-2 right-2 flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+          )}
+        </div>
 
-      {starFeedback && (
-        <div style={{ background: '#e1f5fe', padding: '15px' }}>
-          <strong>Feedback:</strong> {starFeedback}
-          <br />
-          <button onClick={nextQuestion} disabled={isSaving} style={{ marginTop: '10px' }}>
-            {isSaving ? "Saving Session..." : (currentIdx === questions.length - 1 ? "Finish Interview" : "Next Question")}
+        {/* Controls */}
+        <div className="flex justify-center mb-8">
+          <button 
+            onClick={toggleListening}
+            disabled={isProcessing}
+            className={`px-8 py-4 rounded-full font-bold text-white transition-all shadow-md ${
+              isListening 
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                : 'bg-blue-600 hover:bg-blue-700'
+            } disabled:opacity-50`}
+          >
+            {isListening ? 'Stop Recording & Analyze' : 'Start Recording'}
           </button>
         </div>
-      )}
+
+        {/* Instant STAR Feedback */}
+        {starFeedback && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-4 animate-fade-in-up">
+            <h3 className="text-sm font-bold text-blue-800 uppercase mb-2">Live AI Feedback</h3>
+            <p className="text-gray-800 whitespace-pre-wrap">{starFeedback}</p>
+            
+            {!isListening && (
+              <button 
+                onClick={handleNextOrFinish} 
+                disabled={isProcessing || transcript.length < 10}
+                className="mt-6 w-full py-3 bg-gray-900 text-white rounded-md font-semibold hover:bg-black transition-colors disabled:bg-gray-400"
+              >
+                {isProcessing 
+                  ? "Processing..." 
+                  : (currentIdx === questions.length - 1 ? "Finish Interview & Get Report" : "Next Question")
+                }
+              </button>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
-};
-
-export default Session;
+}

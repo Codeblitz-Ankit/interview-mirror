@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import API from '../api/axios';
 import ResumeUpload from '../components/ResumeUpload';
-import heroImage from '../../../interviewPhoto.jpg';
+import heroImage from '../assets/interviewPhoto.jpg';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -31,7 +31,15 @@ const Dashboard = () => {
         } 
       });
     } catch (err) {
-      alert('Failed to start session. Check if backend/Gemini API is running.');
+      console.error('Failed to start interview session:', err);
+
+      const errorMessage =
+        err.response?.data?.error ||
+        (err.request
+          ? 'Backend is unreachable. Start the server and verify MongoDB/Gemini configuration.'
+          : 'Failed to start session.');
+
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
