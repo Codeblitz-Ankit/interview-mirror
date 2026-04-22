@@ -29,22 +29,17 @@ const ResumeUpload = () => {
 
   return (
     <>
-      <div className="grid max-w-full gap-4">
+      <div className="grid max-w-full gap-2">
         <div>
-          <h3 className="text-2xl font-semibold tracking-[-0.03em] text-ink-900">
-            Upload Resume for Gap Analysis
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-ink-900">
-            Add your latest PDF resume so the interview can account for strengths, gaps, and
-            claimed experience.
-          </p>
+          <h3 className="text-base font-semibold text-ink-900">Upload Resume</h3>
+          <p className="text-xs text-ink-900">Add your PDF resume so interviews can reference your experience.</p>
         </div>
 
-        <form onSubmit={handleUpload} className="grid max-w-full gap-3">
-          <label className="grid gap-3">
-            <span className="text-sm font-medium text-ink-900">Resume PDF</span>
+        <form onSubmit={handleUpload} className="grid max-w-full gap-2">
+          <label className="grid gap-1">
+            <span className="text-xs font-medium text-ink-900">Resume PDF</span>
             <input
-              className="block w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-shell-200/90 bg-white/80 px-4 py-3 text-sm text-ink-900 outline-none transition-all duration-300 file:mr-3 file:max-w-[calc(100%-0.75rem)] file:overflow-hidden file:text-ellipsis file:whitespace-nowrap file:rounded-xl file:border-0 file:bg-shell-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-shell-900 hover:file:bg-shell-200 focus:border-focus-400 focus:bg-white focus:ring-4 focus:ring-shell-200/55"
+              className="block w-full min-w-0 max-w-full overflow-hidden rounded-xl border border-shell-200/90 bg-white/80 px-3 py-2 text-xs text-ink-900 outline-none transition-all duration-300 file:mr-2 file:max-w-[calc(100%-0.5rem)] file:overflow-hidden file:text-ellipsis file:whitespace-nowrap file:rounded-lg file:border-0 file:bg-shell-100 file:px-2 file:py-1.5 file:text-xs file:font-medium file:text-shell-900 hover:file:bg-shell-200 focus:border-focus-400 focus:bg-white focus:ring-2 focus:ring-shell-200/55"
               type="file"
               accept=".pdf"
               onChange={(e) => setFile(e.target.files[0])}
@@ -53,14 +48,14 @@ const ResumeUpload = () => {
 
           <button
             type="submit"
-            className="inline-flex items-center justify-center rounded-2xl bg-shell-700 px-5 py-3.5 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-shell-900 hover:shadow-[0_18px_30px_rgba(53,44,36,0.16)] active:scale-[0.99]"
+            className="inline-flex items-center justify-center rounded-xl bg-shell-700 px-3 py-2 text-xs font-semibold text-white transition-all duration-300 hover:-translate-y-0.5 hover:bg-shell-900 active:scale-[0.99]"
           >
             Upload PDF
           </button>
         </form>
 
         {status && !showPopup && (
-          <p className="rounded-2xl border border-shell-200/80 bg-white/55 px-4 py-3 text-sm text-ink-900 backdrop-blur-sm">
+          <p className="rounded-xl border border-shell-200/80 bg-white/55 px-2 py-1.5 text-xs text-ink-900">
             {status}
           </p>
         )}

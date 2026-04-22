@@ -7,25 +7,27 @@ export default function Session() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  // Extract state from Dashboard routing
+
   const { questions, config } = location.state || { questions: [], config: {} };
 
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [transcript, setTranscript] = useState("");
+  const [transcript, setTranscript] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [starFeedback, setStarFeedback] = useState(null);
-  
   const [allAnswers, setAllAnswers] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false); // Handles both save and report generation
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // Web Speech API Setup
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!questions || questions.length === 0) {
-      navigate('/dashboard'); // Kick them out if they bypassed the setup
+      navigate('/dashboard');
     }
   }, [questions, navigate]);
 
@@ -34,23 +36,25 @@ export default function Session() {
     recognition.interimResults = true;
     recognition.lang = 'en-US';
     recognition.onresult = (event) => {
-      const text = Array.from(event.results).map(result => result[0].transcript).join('');
+      const text = Array.from(event.results)
+        .map((result) => result[0].transcript)
+        .join('');
       setTranscript(text);
     };
   }
 
   const toggleListening = () => {
     if (!recognition) {
-      alert("Your browser does not support Speech Recognition. Please use Chrome.");
+      alert('Your browser does not support Speech Recognition. Please use Chrome.');
       return;
     }
 
     if (isListening) {
       recognition.stop();
       setIsListening(false);
-      analyzeAnswer(); // Trigger analysis when they stop talking
+      analyzeAnswer();
     } else {
-      setTranscript("");
+      setTranscript('');
       setStarFeedback(null);
       recognition.start();
       setIsListening(true);
@@ -59,59 +63,54 @@ export default function Session() {
 
   const analyzeAnswer = async () => {
     try {
-      setStarFeedback("Analyzing your answer...");
-      
+      setStarFeedback('Analyzing your answer...');
+
       const res = await API.post('/session/analyze-star', {
         question: questions[currentIdx],
-        answer: transcript
+        answer: transcript,
       });
-      
+
       setStarFeedback(res.data.analysis);
-      
+
       const newAnswer = {
         question: questions[currentIdx],
-        transcript: transcript
+        transcript: transcript,
       };
 
-      // FIX: Safely update the exact index so we don't duplicate answers if they re-record
-      setAllAnswers(prev => {
+      setAllAnswers((prev) => {
         const updated = [...prev];
         updated[currentIdx] = newAnswer;
         return updated;
       });
-
     } catch (err) {
-      console.error("STAR Analysis failed", err);
-      setStarFeedback("Failed to analyze answer. Please try again.");
+      console.error('STAR Analysis failed', err);
+      setStarFeedback('Failed to analyze answer. Please try again.');
     }
   };
 
   const handleNextOrFinish = async () => {
     if (currentIdx < questions.length - 1) {
-      // Move to next question
       setCurrentIdx(currentIdx + 1);
-      setTranscript("");
+      setTranscript('');
       setStarFeedback(null);
     } else {
-      // FIX: Complete End-of-Interview Flow
       setIsProcessing(true);
       try {
-        // 1. Save the raw session to DB
         const saveRes = await API.post('/session/save', {
           ...config,
-          answers: allAnswers
+          answers: allAnswers,
         });
         const sessionId = saveRes.data.sessionId;
 
-        // 2. Generate the full AI debrief report (This was missing!)
-        setStarFeedback("Generating final AI debrief report... This may take up to 15 seconds.");
+        setStarFeedback(
+          'Generating final AI debrief report... This may take up to 15 seconds.'
+        );
         await API.post('/session/report', { sessionId });
 
-        // 3. Navigate to the results page
         navigate(`/report/${sessionId}`);
       } catch (err) {
         console.error(err);
-        alert("Failed to finalize session. Check server logs.");
+        alert('Failed to finalize session. Check server logs.');
         setIsProcessing(false);
       }
     }
@@ -119,75 +118,178 @@ export default function Session() {
 
   if (!questions.length) return null;
 
+  const progress = ((currentIdx + 1) / questions.length) * 100;
+
+  const tips = [
+    'Use the STAR method: Situation, Task, Action, Result',
+    'Back up claims with specific metrics and outcomes',
+    'Connect your answer back to the job requirements',
+    'Be concise — 90 seconds is ideal for most answers',
+  ];
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-3xl bg-white shadow rounded-lg p-8">
-        
-        {/* Header Indicator */}
-        <div className="flex justify-between items-center mb-6 pb-4 border-b">
-          <span className="text-sm font-semibold text-blue-600 uppercase tracking-wider">
-            Question {currentIdx + 1} of {questions.length}
-          </span>
-          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-            {user?.resumeClaims?.length > 0 ? 'Context: Resume Uploaded' : 'Context: General'}
-          </span>
-        </div>
+    <div className="min-h-screen bg-slate-900 overflow-x-hidden">
+      <div
+        className={`max-w-6xl mx-auto px-4 sm:px-6 py-8 transition-all duration-500 ease-out ${
+          mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden h-full">
+              <div className="px-6 py-5 border-b border-slate-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                      Question {currentIdx + 1} of {questions.length}
+                    </span>
+                    <span className="h-1 w-24 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </span>
+                  </div>
+                  <span className="text-xs text-slate-500">
+                    {config.role} · {config.level}
+                  </span>
+                </div>
+              </div>
 
-        {/* The Question */}
-        <h2 className="text-2xl font-bold text-gray-900 mb-8 leading-relaxed">
-          {questions[currentIdx]}
-        </h2>
+              <div className="p-6">
+                <h2 className="text-xl font-semibold text-slate-100 mb-6 leading-relaxed">
+                  {questions[currentIdx]}
+                </h2>
 
-        {/* Live Transcript Area */}
-        <div className="mb-8 relative">
-          <div className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-lg overflow-y-auto text-gray-700 font-medium leading-relaxed">
-            {transcript || (isListening ? "Listening..." : "Click start to begin your answer...")}
+                <div className="mb-6">
+                  <label className="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">
+                    Your Answer
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      readOnly
+                      value={transcript}
+                      placeholder={
+                        isListening
+                          ? 'Listening...'
+                          : 'Click start to begin your answer...'
+                      }
+                      className="w-full h-40 bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-300 text-sm leading-relaxed resize-none transition-all duration-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder-slate-600"
+                    />
+                    {isListening && (
+                      <div className="absolute top-3 right-3 flex items-center gap-2">
+                        <span className="inline-block w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                        <span className="text-xs text-rose-400 font-medium">Recording</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={toggleListening}
+                  disabled={isProcessing}
+                  className={`w-full py-3.5 rounded-lg font-semibold text-sm text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isListening
+                      ? 'bg-rose-600 hover:bg-rose-700 shadow-md hover:shadow-lg'
+                      : 'bg-indigo-600 hover:bg-indigo-700 shadow-md hover:shadow-lg hover:scale-[1.01]'
+                  }`}
+                >
+                  {isListening ? 'Stop Recording & Analyze' : 'Start Recording'}
+                </button>
+
+                {starFeedback && (
+                  <div className="mt-6 bg-slate-900 border border-slate-700 rounded-lg p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                      <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                        AI Feedback
+                      </span>
+                    </div>
+                    <p className="text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
+                      {starFeedback}
+                    </p>
+
+                    {!isListening && (
+                      <button
+                        onClick={handleNextOrFinish}
+                        disabled={isProcessing || transcript.length < 10}
+                        className="mt-5 w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-medium transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isProcessing
+                          ? 'Processing...'
+                          : currentIdx === questions.length - 1
+                            ? 'Finish & View Report'
+                            : 'Next Question'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-          
-          {isListening && (
-            <span className="absolute top-2 right-2 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-            </span>
-          )}
-        </div>
 
-        {/* Controls */}
-        <div className="flex justify-center mb-8">
-          <button 
-            onClick={toggleListening}
-            disabled={isProcessing}
-            className={`px-8 py-4 rounded-full font-bold text-white transition-all shadow-md ${
-              isListening 
-                ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-                : 'bg-blue-600 hover:bg-blue-700'
-            } disabled:opacity-50`}
-          >
-            {isListening ? 'Stop Recording & Analyze' : 'Start Recording'}
-          </button>
-        </div>
+          <div className="lg:col-span-2">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden h-full">
+              <div className="px-5 py-4 border-b border-slate-700">
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+                  Interview Tips
+                </span>
+              </div>
+              <div className="p-5">
+                <ul className="space-y-4">
+                  {tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 rounded bg-slate-700 flex items-center justify-center mt-0.5">
+                        <span className="text-xs text-slate-400 font-medium">{i + 1}</span>
+                      </span>
+                      <span className="text-sm text-slate-400 leading-relaxed">{tip}</span>
+                    </li>
+                  ))}
+                </ul>
 
-        {/* Instant STAR Feedback */}
-        {starFeedback && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mt-4 animate-fade-in-up">
-            <h3 className="text-sm font-bold text-blue-800 uppercase mb-2">Live AI Feedback</h3>
-            <p className="text-gray-800 whitespace-pre-wrap">{starFeedback}</p>
-            
-            {!isListening && (
-              <button 
-                onClick={handleNextOrFinish} 
-                disabled={isProcessing || transcript.length < 10}
-                className="mt-6 w-full py-3 bg-gray-900 text-white rounded-md font-semibold hover:bg-black transition-colors disabled:bg-gray-400"
-              >
-                {isProcessing 
-                  ? "Processing..." 
-                  : (currentIdx === questions.length - 1 ? "Finish Interview & Get Report" : "Next Question")
-                }
-              </button>
-            )}
+                <div className="mt-6 pt-5 border-t border-slate-700">
+                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Session Info
+                  </span>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Role</span>
+                      <span className="text-slate-300 font-medium">{config.role || '—'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Level</span>
+                      <span className="text-slate-300 font-medium">{config.level || '—'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Persona</span>
+                      <span className="text-slate-300 font-medium capitalize">
+                        {config.persona || '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-500">Progress</span>
+                      <span className="text-slate-300 font-medium">
+                        {currentIdx + 1} / {questions.length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {user?.resumeClaims?.length > 0 && (
+                  <div className="mt-5 pt-5 border-t border-slate-700">
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Resume Context
+                    </span>
+                    <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+                      Your resume has been analyzed. The AI will reference your claims when
+                      providing feedback.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        )}
-
+        </div>
       </div>
     </div>
   );

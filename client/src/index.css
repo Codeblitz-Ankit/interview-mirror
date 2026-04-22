@@ -28,10 +28,17 @@
   body,
   #root {
     min-height: 100%;
+    /* overflow-x: hidden; */
   }
 
   body {
     @apply m-0 bg-white font-sans text-ink-900 antialiased;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  body::-webkit-scrollbar {
+    display: none;
   }
 
   button,
